@@ -1,0 +1,14 @@
+[project]
+name = "whisper-tools"
+version = "0.1.0"
+description = "Subtitle generation and live transcription using faster-whisper"
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "sounddevice>=0.4.6",
+    "numpy>=1.24.0",
+    "rich>=13.0.0",
+]
+
+[tool.uv]
+dev-dependencies = []

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# uv
+.uv/
+
+# Whisper models (large binary files, don't push to GitHub)
+models/
+
+# Output files
+*.srt
+*.wav
+notes*.txt
+
+# OS
+.DS_Store
+Thumbs.db
