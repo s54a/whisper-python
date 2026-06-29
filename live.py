@@ -1,14 +1,34 @@
 #!/usr/bin/env python3
 """
 live.py — Real-time microphone transcription
-Usage:
+
+USAGE:
   python live.py                        # transcribe to terminal
   python live.py --output notes.txt     # also save to file
   python live.py --model medium         # more accurate, slower
   python live.py --language en          # skip auto-detect (faster)
+  python live.py --list-devices         # show available microphones
+  python live.py --device 2             # use specific microphone
 
-Controls:
-  Ctrl+C  → stop and save
+OPTIONS:
+  --model MODEL      Whisper model: tiny, base, small (default), medium, large-v3
+  --language CODE    Language code (e.g., en, hi, es, fr). Omit for auto-detect.
+  --output FILE      Save transcript to FILE
+  --device INDEX     Use specific microphone by index number
+  --list-devices     List available audio input devices and exit
+  --help, -h         Show this help message
+
+CONTROLS:
+  Ctrl+C  → Stop transcription and save
+
+EXAMPLES:
+  python live.py --model tiny --language en
+  python live.py --output interview.txt --model medium
+  python live.py --list-devices
+  python live.py --device 2
+
+REQUIREMENTS:
+  sounddevice, faster-whisper, numpy, rich
 """
 
 import argparse
@@ -46,11 +66,72 @@ def rms(audio: np.ndarray) -> float:
 def list_devices():
     """Print available audio input devices."""
     console.print("\n[bold]Available input devices:[/bold]")
+    console.print("[dim]Use --device INDEX to select one[/dim]\n")
     devices = sd.query_devices()
     for i, dev in enumerate(devices):
         if dev["max_input_channels"] > 0:
             console.print(f"  [{i}] {dev['name']}")
     console.print()
+
+
+def show_help():
+    """Display help information."""
+    help_text = """
+[bold cyan]whisper-tools Live Transcription[/bold cyan]
+[dim]Real-time microphone transcription using Whisper[/dim]
+
+[bold]USAGE:[/bold]
+  python live.py [OPTIONS]
+
+[bold]OPTIONS:[/bold]
+  [cyan]--model MODEL[/cyan]      Whisper model to use:
+                     tiny     (fastest, least accurate)
+                     base     (fast)
+                     small    (balanced, [yellow]default[/yellow])
+                     medium   (slower, more accurate)
+                     large-v3 (slowest, most accurate)
+
+  [cyan]--language CODE[/cyan]     Language code (e.g., en, hi, es, fr)
+                     Omit for auto-detect (slower but automatic)
+
+  [cyan]--output FILE[/cyan]       Save transcript to FILE (e.g., notes.txt)
+
+  [cyan]--device INDEX[/cyan]      Use specific microphone by index number
+
+  [cyan]--list-devices[/cyan]      List all available microphones and exit
+
+  [cyan]--help, -h[/cyan]          Show this help message
+
+[bold]CONTROLS:[/bold]
+   [yellow]Ctrl+C[/yellow]  → Stop transcription and save
+
+[bold]EXAMPLES:[/bold]
+  # Default settings (small model, auto-detect)
+  python live.py
+
+  # Save transcript to file
+  python live.py --output meeting.txt
+
+  # Fastest configuration (tiny model, English only)
+  python live.py --model tiny --language en
+
+  # More accurate transcription
+  python live.py --model medium --output interview.txt
+
+  # Find your microphone
+  python live.py --list-devices
+
+  # Use specific microphone
+  python live.py --device 2 --model base
+
+[bold]TIPS:[/bold]
+  • Use [cyan]--model tiny[/cyan] for near-realtime transcription
+  • Use [cyan]--language CODE[/cyan] to speed up processing
+  • Increase model size for better accuracy ([cyan]medium[/cyan], [cyan]large-v3[/cyan])
+  • Run [cyan]--list-devices[/cyan] to identify your microphone
+  • Press [yellow]Ctrl+C[/yellow] to stop and save
+"""
+    console.print(help_text)
 
 
 class LiveTranscriber:
@@ -232,7 +313,8 @@ class LiveTranscriber:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Live microphone transcription using Whisper"
+        description="Live microphone transcription using Whisper",
+        add_help=False,  # We'll handle help manually for better formatting
     )
     parser.add_argument(
         "--model",
@@ -261,7 +343,16 @@ def main():
         action="store_true",
         help="List available audio input devices and exit.",
     )
+    parser.add_argument(
+        "--help", "-h",
+        action="store_true",
+        help="Show this help message and exit.",
+    )
     args = parser.parse_args()
+
+    if args.help:
+        show_help()
+        return
 
     if args.list_devices:
         list_devices()
