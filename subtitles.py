@@ -5,6 +5,8 @@ Usage:
   python subtitles.py video.mp4
   python subtitles.py video.mp4 --model small
   python subtitles.py video.mp4 --model medium --language hi
+  python subtitles.py --folder /path/to/folder
+  python subtitles.py --folder /path/to/folder --model medium --language en
 """
 
 import argparse
@@ -22,6 +24,8 @@ console = Console()
 
 MODELS_DIR = Path(__file__).parent / "models"
 MODELS_DIR.mkdir(exist_ok=True)
+
+VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv'}
 
 
 def extract_audio(video_path: Path, audio_path: Path) -> None:
@@ -62,6 +66,14 @@ def segments_to_srt(segments) -> str:
     return "\n".join(lines)
 
 
+def get_video_files(folder_path: Path) -> list[Path]:
+    """Get all video files in a folder (non-recursive)."""
+    video_files = []
+    for ext in VIDEO_EXTENSIONS:
+        video_files.extend(folder_path.glob(f"*{ext}"))
+    return sorted(video_files)
+
+
 def generate_subtitles(
     video_path: Path,
     model_name: str = "small",
@@ -74,6 +86,11 @@ def generate_subtitles(
         sys.exit(1)
 
     srt_path = video_path.with_suffix(".srt")
+
+    # Skip if SRT already exists
+    if srt_path.exists():
+        console.print(f"[yellow]⊘ SRT already exists, skipping:[/yellow] {video_path.name}")
+        return srt_path
 
     console.print(f"\n[bold cyan]whisper-tools[/bold cyan] subtitle generator")
     console.print(f"  Video   : {video_path.name}")
@@ -133,11 +150,83 @@ def generate_subtitles(
     return srt_path
 
 
+def batch_process_folder(
+    folder_path: Path,
+    model_name: str = "small",
+    language: str | None = None,
+) -> None:
+    """Process all video files in a folder."""
+    folder_path = Path(folder_path).resolve()
+
+    if not folder_path.exists() or not folder_path.is_dir():
+        console.print(f"[red]Folder not found:[/red] {folder_path}")
+        sys.exit(1)
+
+    video_files = get_video_files(folder_path)
+
+    if not video_files:
+        console.print(f"[yellow]No video files found in:[/yellow] {folder_path}")
+        console.print(f"[dim]Supported formats: {', '.join(VIDEO_EXTENSIONS)}[/dim]")
+        return
+
+    console.print(f"\n[bold cyan]Batch Processing[/bold cyan]")
+    console.print(f"  Folder  : {folder_path}")
+    console.print(f"  Files   : {len(video_files)} video(s) found")
+    console.print(f"  Model   : {model_name}")
+    console.print(f"  Language: {language or 'auto-detect'}\n")
+
+    processed = 0
+    skipped = 0
+    failed = 0
+
+    for i, video_file in enumerate(video_files, 1):
+        console.print(f"[bold]━━━ [{i}/{len(video_files)}] Processing: {video_file.name} ━━━[/bold]")
+
+        try:
+            srt_path = video_file.with_suffix(".srt")
+            if srt_path.exists():
+                console.print(f"[yellow]  ⊘ Skipping: SRT already exists[/yellow]")
+                skipped += 1
+                continue
+
+            generate_subtitles(
+                video_path=video_file,
+                model_name=model_name,
+                language=language,
+            )
+            processed += 1
+
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Batch processing interrupted by user[/yellow]")
+            break
+        except Exception as e:
+            console.print(f"[red]  ✗ Failed: {e}[/red]")
+            failed += 1
+
+    # Summary
+    console.print(f"\n[bold]{'═' * 60}[/bold]")
+    console.print(f"[bold green]Batch Complete![/bold green]")
+    console.print(f"  ✓ Processed : {processed}")
+    console.print(f"  ⊘ Skipped   : {skipped} (SRT already exists)")
+    if failed:
+        console.print(f"  ✗ Failed    : {failed}")
+    console.print(f"[bold]{'═' * 60}[/bold]\n")
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate SRT subtitles from a video file using Whisper"
+        description="Generate SRT subtitles from a video file or batch process a folder"
     )
-    parser.add_argument("video", help="Path to MP4 (or any video) file")
+    parser.add_argument(
+        "video",
+        nargs="?",
+        help="Path to MP4 (or any video) file",
+    )
+    parser.add_argument(
+        "--folder",
+        default=None,
+        help="Batch process all videos in a folder",
+    )
     parser.add_argument(
         "--model",
         default="small",
@@ -150,6 +239,19 @@ def main():
         help="Language code e.g. 'en', 'hi'. Omit for auto-detect.",
     )
     args = parser.parse_args()
+
+    # Batch folder mode
+    if args.folder:
+        batch_process_folder(
+            folder_path=args.folder,
+            model_name=args.model,
+            language=args.language,
+        )
+        return
+
+    # Single file mode
+    if not args.video:
+        parser.error("Either provide a video file or use --folder for batch processing")
 
     generate_subtitles(
         video_path=args.video,

@@ -34,9 +34,9 @@ MODELS_DIR = Path(__file__).parent / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
 SAMPLE_RATE = 16000       # whisper's native rate
-CHUNK_SECONDS = 5         # how many seconds of audio to transcribe at once
+CHUNK_SECONDS = 3         # how many seconds of audio to transcribe at once
 OVERLAP_SECONDS = 0.5     # overlap between chunks to avoid cutting words
-SILENCE_THRESHOLD = 0.01  # RMS below this = silence, skip transcription
+SILENCE_THRESHOLD = 0.005  # RMS below this = silence, skip transcription
 
 
 def rms(audio: np.ndarray) -> float:
